@@ -9,6 +9,18 @@ Find if a module called "dbgeng.dll" has any imports called "RegGetValue".
 
 ```dx @$curprocess.Modules["dbgeng.dll"].Contents.Imports.SelectMany(x => x.Functions).Where(x => x.ToDisplayString().Contains("RegGetValue"))```
 
+Set a breakpoint on every export of "symsrv.dll". (The ```.Where(x => false)``` makes the command silent and makes sure everything gets evaluated instead of stopping at 100 breakpoints)
+
+```dx @$curprocess.Modules["symsrv"].Contents.Exports.Select(x => Debugger.Utility.Control.ExecuteCommand("bp " + x.CodeAddress.ToDisplayString("x"))).Where(x => false)```
+
+Get a table of every import from a module "dbghelp":
+
+```dx -g @$curprocess.Modules["dbghelp"].Contents.Imports.SelectMany(m => m.Functions.Select(f => new {Mod = m, Func = f})), 1000```
+
+Find any modules that import module "foo.dll":
+
+```dx @$curprocess.Modules.Where(m => m.Contents.Imports.Any(x => x.ModuleName.ToLower() == "foo.dll"))```
+
 # Threads
 
 Find any threads that are currently executing for a module called "mymodule.dll" or "mymodule.exe"
@@ -29,6 +41,14 @@ Example:
 0:000> dx @$getEnvVar("tmp")
 @$getEnvVar("tmp")                
     [0x0]            : TMP=C:\Users\tmisiak\AppData\Local\Temp
+```
+
+# .NET Managed objects with "dx"
+
+You can "cast" a managed object pointer to "System.Object" and dx will give you the full object information.
+
+```
+dx (System_Private_CoreLib!System.Object *)0x1234
 ```
 
 # stackCollector.js
@@ -71,6 +91,30 @@ Use it by running:
 Stack corruption detected!
 WindowsConsoleApp!OverflowFunc+0x3b:
 00007ff7`56cb117b f3aa            rep stos byte ptr [rdi]
+```
+
+# ttdUtil.js
+
+Find all calls to exports of a specific module for a TTD trace:
+
+```
+0:000> dx -g @$scriptContents.AllExportCalls("symsrv")
+===========================================================================================================================================================================================================================================================================================================================
+=           = (+) EventType = (+) ThreadId = (+) UniqueThreadId = (+) TimeStart  = (+) TimeEnd    = (+) Function                               = (+) FunctionAddress = (+) ReturnAddress = (+) ReturnValue = (+) Parameters = (+) SystemTimeStart                          = (+) SystemTimeEnd                            =
+===========================================================================================================================================================================================================================================================================================================================
+= [0x0]     - 0x0           - 0x8610       - 0x2                - 10A0BD:77      - 10A0BF:BC      - symsrv!SymbolServerSetOptionsW             - 0x7ffa9d5627c0      - 0x7ffa340b876a    - 1               - {...}          - Thursday, September 15, 2022 23:17:59.836    - Thursday, September 15, 2022 23:17:59.836    =
+= [0x1]     - 0x0           - 0x8610       - 0x2                - 10A0C0:15      - 10A0C0:A4      - symsrv!SymbolServerSetOptionsW             - 0x7ffa9d5627c0      - 0x7ffa340b87b1    - 1               - {...}          - Thursday, September 15, 2022 23:17:59.836    - Thursday, September 15, 2022 23:17:59.836    =
+= [0x2]     - 0x0           - 0x8610       - 0x2                - 10A0CA:15      - 10A0CA:A3      - symsrv!SymbolServerSetOptionsW             - 0x7ffa9d5627c0      - 0x7ffa340b87b1    - 1               - {...}          - Thursday, September 15, 2022 23:17:59.836    - Thursday, September 15, 2022 23:17:59.836    =
+= [0x3]     - 0x0           - 0x8610       - 0x2                - 10A0CE:15      - 10A0CE:9F      - symsrv!SymbolServerSetOptionsW             - 0x7ffa9d5627c0      - 0x7ffa340b87b1    - 1               - {...}          - Thursday, September 15, 2022 23:17:59.836    - Thursday, September 15, 2022 23:17:59.836    =
+= [0x4]     - 0x0           - 0x8610       - 0x2                - 10A0D0:18      - 10A0D1:0       - symsrv!SymbolServerGetOptionData           - 0x7ffa9d562db0      - 0x7ffa340b8857    - 0               - {...}          - Thursday, September 15, 2022 23:17:59.836    - Thursday, September 15, 2022 23:17:59.836    =
+```
+
+# Javascript tips
+
+With `dx`, you can often index into a collection dynamically via multiple keys. For instance, ```@$curprocess.Modules[0]``` works as well as ```@$curprocess.Modules["foo.dll"]``` and ```@$curprocess.Modules["foo"]```. The same thing doesn't work directly from JavaScript because it doesn't support dynamic indexing. Instead the data model projects this in as `.getValueAt`, so you can do:
+
+```
+host.currentProcess.Modules.getValueAt("foo")
 ```
 
 # Other collections of scripts and queries
